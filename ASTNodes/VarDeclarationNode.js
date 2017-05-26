@@ -1,6 +1,6 @@
 var VarDeclarationNode = function (name,value) {
-    this.name = "";
-    this.value = "";
+    this.name = name;
+    this.value = value;
 };
 
 VarDeclarationNode.prototype.getType = function () {

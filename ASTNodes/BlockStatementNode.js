@@ -1,4 +1,5 @@
 var BlockStatementNode = function (functions) {
+    this.scopeProto = new ScopeProto();
     this.functions = functions;
 };
 
