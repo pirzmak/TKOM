@@ -19,9 +19,10 @@ Parser.prototype.parse = function () {
     var func;
     var functions = [];
     while ((func = this._parseFunction() ) !== undefined) {
-        functions.add(func);
+        functions.push(func);
     }
 
+    console.log(new ProgramNode(functions));
     return new ProgramNode(functions);
 };
 
