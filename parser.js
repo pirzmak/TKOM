@@ -1,7 +1,7 @@
 var Parser = function () {
     this.lexer = new Lexer();
 
-    this.previousToken = undefined;
+    this.oneTokenBuffor = undefined;
 };
 
 var Parameter = function (typeParameter, nameParameter) {
@@ -9,29 +9,30 @@ var Parameter = function (typeParameter, nameParameter) {
     this.nameParameter = nameParameter;
 };
 
-Parser.prototype.parse = function () {
-
-    var syntaxTree = new ProgramNode();
-    var func;
-
-    while ((func = this._parseFunction() ) !== undefined) {
-        syntaxTree.addFunction(func);
-
-        this.previousToken = undefined;
-    }
-
-    return syntaxTree;
+var Quote = function(quote) {
+    this.value = quote;
 };
 
-Parser.prototype._parseVariable = function (variableToken) {
 
+Parser.prototype.parse = function () {
+
+    var func;
+    var functions = [];
+    while ((func = this._parseFunction() ) !== undefined) {
+        functions.add(func);
+    }
+
+    return new ProgramNode(functions);
+};
+
+Parser.prototype._parseVariable = function (name, type) {
+    //Brak accept bo przy decydowaniu czy funkacja czy zmennaa jest pobierany
     console.log("_parseVariable open");
 
     var variableNode = new VariableNode();
 
-    variableNode.setName(variableToken.value);
-    variableNode.setType(variableToken.type);
-    variableNode.setPosition(variableToken.posLine,variableToken.numLine);
+    variableNode.setName(name);
+    variableNode.setType(type);
 
     console.log("_parseVariable close", variableNode);
 
@@ -42,24 +43,20 @@ Parser.prototype._parseFunction = function () {
 
     console.log("_parseFunction open");
 
-    var func = new FunctionNode();
-
-    var token = this.accept([TokenType.ENDOFFILE, TokenType.FUNCTION]);
-    func.setPosition(token.posLine,token.numLine);
-
-    if (Parser._tokenIsType(token, [TokenType.ENDOFFILE])) {
+    if (!Parser._tokenIsType(this.getCurrToken(), [TokenType.FUNCTION]))
         return undefined;
-    }
 
-    token = this.accept([TokenType.IDENTIFIER]);
+    this.accept([TokenType.FUNCTION]);
 
-    func.setName(token.value);
-    func.setParameters(this._parseParameters());
-    func.setBlock(this._parseBlock());
+    var name = this.getCurrToken().value;
+    this.accept([TokenType.IDENTIFIER]);
 
-    console.log("_parseFunction close", func);
+    var parameters = this._parseParameters();
+    var block = this._parseBlock();
 
-    return func;
+    console.log("_parseFunction close");
+
+    return new FunctionNode(name, parameters, block);
 };
 
 Parser.prototype._parseParameters = function () {
@@ -68,632 +65,552 @@ Parser.prototype._parseParameters = function () {
 
     var param = [];
 
-    var tokenType;
-    var tokenName;
+    var type;
+    var name;
 
     this.accept([TokenType.PARENTHOPEN]);
 
     if (!Parser._tokenIsType(this.getCurrToken(), [TokenType.PARENTHCLOSE])) {
 
-        tokenType = this.accept([TokenType.RESPONSE, TokenType.TEST, TokenType.URL, TokenType.VAR]);
-        tokenName = this.accept([TokenType.IDENTIFIER]);
+        type = this.getCurrToken().type;
+        this.accept([TokenType.RESPONSE, TokenType.TEST, TokenType.URL, TokenType.VAR]);
 
-        param.push(new Parameter(tokenType.type, tokenName.value));
+        name = this.getCurrToken().value;
+        this.accept([TokenType.IDENTIFIER]);
 
-        while(!Parser._tokenIsType(this.getCurrToken(), [TokenType.COMMA])) {
-            tokenType = this.accept([TokenType.COMMA]);
+        param.push(new Parameter(type, name));
 
-            tokenType = this.accept([TokenType.RESPONSE, TokenType.TEST, TokenType.URL, TokenType.VAR]);
-            tokenName = this.accept([TokenType.IDENTIFIER]);
+        while (Parser._tokenIsType(this.getCurrToken(), [TokenType.COMMA])) {
+            this.accept([TokenType.COMMA]);
 
-            param.push(new Parameter(tokenType.type, tokenName.value));
+            type = this.getCurrToken().type;
+            this.accept([TokenType.RESPONSE, TokenType.TEST, TokenType.URL, TokenType.VAR]);
+
+            name = this.getCurrToken().value;
+            this.accept([TokenType.IDENTIFIER]);
+
+            param.push(new Parameter(type, name));
         }
     }
-        this.accept([TokenType.PARENTHCLOSE]);
-
+    this.accept([TokenType.PARENTHCLOSE]);
 
     console.log("_parseParameters close", param);
 
     return param;
-
 };
 
 Parser.prototype._parseBlock = function () {
 
     console.log("_parseBlock Open");
 
-    var blockNode = new BlockStatementNode();
+    if (!Parser._tokenIsType(this.getCurrToken(), [TokenType.BROCKETOPEN]))
+        return undefined;
 
     this.accept(TokenType.BROCKETOPEN);
 
-    var token;
+    var functionNode;
+    var blockFunctionsNode = [];
 
-    while (true) {
-        token = this.getCurrToken();
-        blockNode.setPosition(token.posLine,token.numLine);
-
-        if (!Parser._tokenIsType(token, [TokenType.IF,
-                TokenType.FOR,
-                TokenType.IDENTIFIER,
-                TokenType.VAR, TokenType.TEST, TokenType.BODY, TokenType.RESPONSE,
-                TokenType.RETURN, TokenType.BROCKETOPEN, TokenType.BREAK]))
-            break;
-
-        switch (token.type) {
-            case TokenType.IF : {
-                blockNode.addFunction(this._parseIfStatement());
-                break;
-            }
-            case TokenType.FOR : {
-                blockNode.addFunction(this._parseForStatement());
-                break;
-            }
-            case TokenType.IDENTIFIER : {
-                blockNode.addFunction(this._parseAssignmentOrFunCall());
-                break;
-            }
-            case TokenType.VAR : {
-                blockNode.addFunction(this._parseVarDeclaration());
-                break;
-            }
-            case TokenType.TEST : {
-                blockNode.addFunction(this._parseTestDeclaration());
-                break;
-            }
-            case TokenType.BODY : {
-                blockNode.addFunction(this._parseBodyDeclaration());
-                break;
-            }
-            case TokenType.RESPONSE : {
-                blockNode.addFunction(this._parseResponseDeclaration());
-                break;
-            }
-            case TokenType.RETURN : {
-                blockNode.addFunction(this._parseReturnStatement());
-                break;
-            }
-            case TokenType.BROCKETOPEN : {
-                blockNode.addFunction(this._parseBlock());
-                break;
-            }
-            case TokenType.BREAK : {
-                blockNode.addFunction(this._parseLoopBreak());
-                break;
-            }
-            default : {
-                break;
-            }
-        }
-
-        if (token.type === TokenType.BROCKETCLOSE) {
-            break;
-        }
-
+    while ((functionNode = this._parseIfStatement()) !== undefined ||
+    (functionNode = this._parseForStatement()) !== undefined ||
+    (functionNode = this._parseAssignmentOrFunCall()) !== undefined ||
+    (functionNode = this._parseVarDeclaration()) !== undefined ||
+    (functionNode = this._parseTestDeclaration()) !== undefined ||
+    (functionNode = this._parseBodyDeclaration()) !== undefined ||
+    (functionNode = this._parseResponseDeclaration()) !== undefined ||
+    (functionNode = this._parseReturnStatement()) !== undefined ||
+    (functionNode = this._parseBlock()) !== undefined ||
+    (functionNode = this._parseLoopBreak()) !== undefined) {
+        blockFunctionsNode.push(functionNode);
     }
 
     this.accept(TokenType.BROCKETCLOSE);
 
-    console.log("_parseBlock End", blockNode);
+    console.log("_parseBlock End");
 
-    return blockNode;
-
+    return new BlockStatementNode(blockFunctionsNode);
 };
 
 Parser.prototype._parseIfStatement = function () {
 
     console.log("_parseIfStatement Open");
 
-    var ifNode = new IfStatementNode();
+    if (!Parser._tokenIsType(this.getCurrToken(), [TokenType.IF]))
+        return undefined;
 
     this.accept([TokenType.IF]);
     this.accept([TokenType.PARENTHOPEN]);
 
-    ifNode.setCondition(this._parseCondition());
+    var condition = this._parseCondition();
 
     this.accept([TokenType.PARENTHCLOSE]);
 
-    ifNode.setTrueBlock(this._parseBlock());
+    var trueBlock = this._parseBlock();
 
-    var token = this.getCurrToken();
+    var falseBlock;
 
-    if (Parser._tokenIsType(token, [TokenType.ELSE])) {
+    if (Parser._tokenIsType(this.getCurrToken(), [TokenType.ELSE])) {
         this.accept(TokenType.ELSE);
-        ifNode.setFalseBlock(this._parseBlock());
-    } else {
-        this.previousToken = token;
+        falseBlock = this._parseBlock();
     }
 
-    console.log("_parseIfStatement Close", ifNode);
+    console.log("_parseIfStatement Close");
 
-    return ifNode;
+    return new IfStatementNode(condition, trueBlock, falseBlock);
 };
 
 Parser.prototype._parseCondition = function () {
 
     console.log("_parseCondition Open");
 
-    var conditionNode = new ConditionNode();
+    var operants = [];
+    var operator;
 
-    conditionNode.addOperand(this._parseAndCondition());
+    operants.push(this._parseAndCondition());
 
-    var tokenTmp = this.getCurrToken();
-
-    while (Parser._tokenIsType(tokenTmp, [TokenType.OR])) {
-        var token = this.accept([TokenType.OR]);
-
-        conditionNode.setOperator(token.type);
-
-        conditionNode.addOperand(this._parseAndCondition());
+    while (Parser._tokenIsType(this.getCurrToken(), [TokenType.OR])) {
+        operator = this.getCurrToken().type;
+        this.accept([TokenType.OR]);
+        operants.push(this._parseAndCondition());
     }
 
-    console.log("_parseCondition Close", conditionNode);
+    console.log("_parseCondition Close");
 
-    return conditionNode;
+    return new ConditionNode(operants, operator);
 };
 
 Parser.prototype._parseAndCondition = function () {
 
     console.log("_parseAndCondition Open");
 
-    var conditionNode = new ConditionNode();
+    var operants = [];
+    var operator;
 
-    conditionNode.addOperand(this._parseEqualityCondition());
+    operants.push(this._parseEqualityCondition());
 
-    var tokenTmp = this.getCurrToken();
-
-    while (Parser._tokenIsType(tokenTmp, [TokenType.AND])) {
-        var token = this.accept([TokenType.AND]);
-
-        conditionNode.setOperator(token.type);
-
-        conditionNode.addOperand(this._parseEqualityCondition());
+    while (Parser._tokenIsType(this.getCurrToken(), [TokenType.AND])) {
+        operator = this.getCurrToken().type;
+        this.accept([TokenType.AND]);
+        operants.push(this._parseEqualityCondition());
     }
 
+    console.log("_parseAndCondition Close");
 
-    console.log("_parseAndCondition Close", conditionNode);
-
-    return conditionNode;
+    return new ConditionNode(operants, operator);
 };
 
 Parser.prototype._parseEqualityCondition = function () {
 
     console.log("_parseEqualityCondition Open");
 
-    var conditionNode = new ConditionNode();
+    var operants = [];
+    var operator;
 
-    conditionNode.addOperand(this._parseRelationalCondition());
+    operants.push(this._parseRelationalCondition());
 
-    var token = this.getCurrToken();
-
-    if (Parser._tokenIsType(token, [TokenType.EQUALITY, TokenType.INEQUALITY])) {
-        var operatorToken = this.accept([TokenType.EQUALITY, TokenType.INEQUALITY]);
-
-        conditionNode.setOperator(operatorToken.value);
-
-        conditionNode.addOperand(this._parseRelationalCondition());
+    while (Parser._tokenIsType(this.getCurrToken(), [TokenType.EQUALITY, TokenType.INEQUALITY])) {
+        operator = this.getCurrToken().type;
+        this.accept([TokenType.EQUALITY, TokenType.INEQUALITY]);
+        operants.push(this._parseRelationalCondition());
     }
 
-    console.log("_parseEqualityCondition Close", conditionNode);
+    console.log("_parseEqualityCondition Close");
 
-    return conditionNode;
+    return new ConditionNode(operants, operator);
 };
 
 Parser.prototype._parseRelationalCondition = function () {
 
     console.log("_parseRelationalCondition Open");
 
-    var conditionNode = new ConditionNode();
+    var operants = [];
+    var operator;
 
-    conditionNode.addOperand(this._parsePrimaryCondition());
+    operants.push(this._parsePrimaryCondition());
 
-    var token = this.getCurrToken();
-
-    if (Parser._tokenIsType(token, [TokenType.LESS, TokenType.LESSOREQUAL, TokenType.GREATER, TokenType.GREATEROREQUAL])) {
-        var tokenValue = this.accept([TokenType.LESS, TokenType.LESSOREQUAL, TokenType.GREATER, TokenType.GREATEROREQUAL]);
-
-        conditionNode.setOperator(tokenValue.value);
-
-        conditionNode.addOperand(this._parsePrimaryCondition());
+    while (Parser._tokenIsType(this.getCurrToken(), [TokenType.LESS, TokenType.LESSOREQUAL, TokenType.GREATER, TokenType.GREATEROREQUAL])) {
+        operator = this.getCurrToken().type;
+        this.accept([TokenType.LESS, TokenType.LESSOREQUAL, TokenType.GREATER, TokenType.GREATEROREQUAL]);
+        operants.push(this._parsePrimaryCondition());
     }
 
-    console.log("_parseRelationalCondition Close", conditionNode);
+    console.log("_parseRelationalCondition Close");
 
-    return conditionNode;
+    return new ConditionNode(operants, operator);
 };
 
 Parser.prototype._parsePrimaryCondition = function () {
 
     console.log("_parsePrimaryCondition Open");
 
-    var conditionNode = new ConditionNode();
+    var operants = [];
+    var operator = undefined;
+    var negation = false;
 
-    var token = this.getCurrToken();
-
-    if (Parser._tokenIsType(token, [TokenType.NEGATION])) {
+    if (Parser._tokenIsType(this.getCurrToken(), [TokenType.NEGATION])) {
         this.accept([TokenType.NEGATION]);
-
-        conditionNode.setNegated();
+        negation = true;
     }
 
-    if (Parser._tokenIsType(token, [TokenType.PARENTHOPEN])) {
+    if (Parser._tokenIsType(this.getCurrToken(), [TokenType.PARENTHOPEN])) {
         this.accept([TokenType.PARENTHOPEN]);
-
-        conditionNode.addOperand(this._parseCondition());
-
+        operants.push(this._parseCondition());
         this.accept([TokenType.PARENTHCLOSE]);
     } else {
-
-        if (Parser._tokenIsType(token, [TokenType.IDENTIFIER])) {
-            conditionNode.addOperand(this._parseVariable(this.accept([TokenType.IDENTIFIER])));
+        if (Parser._tokenIsType(this.getCurrToken(), [TokenType.IDENTIFIER])) {
+            var name = this.getCurrToken().value;
+            var type = this.getCurrToken().type;
+            this.accept([TokenType.IDENTIFIER]);
+            operants.push(this._parseVariable(name, type));
         } else {
-            conditionNode.addOperand(this._parseLiteral());
+            operants.push(this._parseLiteral());
         }
     }
 
-    console.log("_parsePrimaryCondition Close", conditionNode);
+    console.log("_parsePrimaryCondition Close");
 
-
+    var conditionNode = new ConditionNode(operants, operator);
+    if (negation)
+        conditionNode.setNegated();
     return conditionNode;
 };
 
 Parser.prototype._parseForStatement = function () {
 
     console.log("_parseForStatement Open");
-
-    var forNode = new ForStatementNode();
+    if (!Parser._tokenIsType(this.getCurrToken(), [TokenType.FOR]))
+        return undefined;
 
     this.accept(TokenType.FOR);
 
-    var startToken;
-    var endToken;
+    var start;
+    var end;
 
-    if (Parser._tokenIsType(this.getCurrToken(), [TokenType.IDENTIFIER]))
-        startToken = this._parseVariable(this.accept([TokenType.IDENTIFIER]));
+    var name;
+    var type;
+
+    if (Parser._tokenIsType(this.getCurrToken(), [TokenType.IDENTIFIER])) {
+        name = this.getCurrToken().value;
+        type = this.getCurrToken().type;
+        this.accept([TokenType.IDENTIFIER]);
+        start = this._parseVariable(name, type);
+    }
 
     if (Parser._tokenIsType(this.getCurrToken(), [TokenType.NUMBERLITERAL]))
-        startToken = this._parseLiteral();
+        start = this._parseExpression(this.getCurrToken().value,this.getCurrToken().type);
 
     this.accept([TokenType.FORTO]);
 
-    if (Parser._tokenIsType(this.getCurrToken(), [TokenType.IDENTIFIER]))
-        endToken = this._parseVariable(this.accept([TokenType.IDENTIFIER]));
-
+    if (Parser._tokenIsType(this.getCurrToken(), [TokenType.IDENTIFIER])) {
+        name = this.getCurrToken().value;
+        type = this.getCurrToken().type;
+        this.accept([TokenType.IDENTIFIER]);
+        end = this._parseVariable(name, type);
+    }
     if (Parser._tokenIsType(this.getCurrToken(), [TokenType.NUMBERLITERAL]))
-        endToken = this._parseLiteral();
+        end = this._parseExpression(this.getCurrToken().value,this.getCurrToken().type);
 
-    forNode.setStart(startToken);
-    forNode.setEnd(endToken);
-    forNode.setBlock(this._parseBlock());
+    var block = this._parseBlock();
 
-    console.log("_parseForStatement Close", forNode);
+    console.log("_parseForStatement Close");
 
-    return forNode;
+    return new ForStatementNode(start, end, block);
 };
 
 Parser.prototype._parseAssignmentOrFunCall = function () {
 
     console.log("_parseAssignmentOrFunCall Open");
 
-    var assignementNode;
+    if (!Parser._tokenIsType(this.getCurrToken(), [TokenType.IDENTIFIER]))
+        return undefined;
 
-    var token = this.accept([TokenType.IDENTIFIER]);
+    var name = this.getCurrToken().value;
+    var type = this.getCurrToken().type;
+    this.accept([TokenType.IDENTIFIER]);
 
-    assignementNode = this._parseFunCall(token.value);
-
-    if (assignementNode === undefined) {
-        var assignment = new AssignmentNode();
-
-        assignment.setVariable(this._parseVariable(token));
-
+    if (Parser._tokenIsType(this.getCurrToken(), [TokenType.PARENTHOPEN])) {
+        console.log("_parseAssignmentOrFunCall Close");
+        return this._parseFunCall(name);
+    } else {
+        var variable = this._parseVariable(name, type);
         this.accept([TokenType.ASSIGNEMENT]);
+        var value = this._parseAssignable();
 
-        assignment.setValue(this._parseAssignable());
+        console.log("_parseAssignmentOrFunCall Close");
 
-        assignementNode = assignment;
+        this.accept([TokenType.SEMICOLN]);
+
+        return new AssignmentNode(variable, value)
     }
-
-    this.accept([TokenType.SEMICOLN]);
-
-
-    console.log("_parseAssignmentOrFunCall Close", assignementNode);
-
-    return assignementNode;
 };
 
 Parser.prototype._parseAssignable = function () {
 
     console.log("_parseAssignable Open");
 
-    var assignableNode;
-    var token;
+    var name = this.getCurrToken().value;
+    var type = this.getCurrToken().type;
 
-    if (this.getCurrToken().type === TokenType.IDENTIFIER) {
+    switch (type) {
+        case TokenType.IDENTIFIER:
+            this.accept([TokenType.IDENTIFIER]);
 
-        token = this.accept([TokenType.IDENTIFIER]);
+            if (Parser._tokenIsType(this.getCurrToken(), [TokenType.PARENTHOPEN])) {
 
-        assignableNode = this._parseFunCall(token.value);
-        if (assignableNode === undefined) {
-            assignableNode = this._parseExpression(token);
-        }
-    } else if (this.getCurrToken().type === TokenType.SQUAREBRACKETOPEN) {
-        assignableNode = this._parseTest();
-    } else if (this.getCurrToken().type === TokenType.BROCKETOPEN) {
-        assignableNode = this._parseBody();
-    } else if (this.getCurrToken().type === TokenType.QUOTE) {
-        assignableNode = this.accept([TokenType.QUOTE]).value;
-    } else {
-        assignableNode = this._parseExpression(token);
+                console.log("_parseAssignable Close");
+                return this._parseFunCall(name);
+            }
+            else {
+                console.log("_parseAssignable Close");
+                return this._parseExpression(name, type);
+            }
+        case TokenType.SQUAREBRACKETOPEN:
+            console.log("_parseAssignable Close");
+            return this._parseTest();
+        case TokenType.BROCKETOPEN:
+            console.log("_parseAssignable Close");
+            return this._parseBody();
+        case TokenType.QUOTE:
+            this.accept([TokenType.QUOTE]);
+            console.log("_parseAssignable Close");
+            return new Quote(name);
+        default:
+            console.log("_parseAssignable Close");
+            return this._parseExpression(name, type);
     }
-
-    console.log("_parseAssignable Close", assignableNode);
-
-    return assignableNode;
 };
 
-Parser.prototype._parseExpression = function (token) {
+Parser.prototype._parseExpression = function (name,type) {
 
     console.log("_parseExpression Open");
 
-    var expressionNode = new ExpressionNode();
+    var operations = [];
+    var operants = [];
 
-    expressionNode.addOperand(this._parseMultiplicativeExpression(token));
-    expressionNode.setPosition(this.getCurrToken().posLine,this.getCurrToken().numLine);
+    operants.push(this._parseMultiplicativeExpression(name,type));
 
     while (Parser._tokenIsType(this.getCurrToken(), [TokenType.PLUS, TokenType.MINUS])) {
-        var tempToken = this.accept([TokenType.PLUS, TokenType.MINUS]);
-        expressionNode.addOperator(tempToken.type);
-
-        expressionNode.addOperand(this._parseMultiplicativeExpression());
+        var operatorType = this.getCurrToken().type;
+        this.accept([TokenType.PLUS, TokenType.MINUS]);
+        operations.push(operatorType);
+        operants.push(this._parseMultiplicativeExpression());
     }
 
-    console.log("_parseExpression Close", expressionNode);
+    console.log("_parseExpression Close");
 
-    return expressionNode;
+    return new ExpressionNode(operations,operants);
 };
 
-Parser.prototype._parseMultiplicativeExpression = function (token) {
+Parser.prototype._parseMultiplicativeExpression = function (name,type) {
 
     console.log("_parseMultiplicativeExpression Open");
 
-    var expressionNode = new ExpressionNode(token);
+    var operations = [];
+    var operants = [];
 
-    expressionNode.addOperand(this._parsePrimaryExpression(token));
-    expressionNode.setPosition(this.getCurrToken().posLine,this.getCurrToken().numLine);
+    operants.push(this._parsePrimaryExpression(name,type));
 
     while (Parser._tokenIsType(this.getCurrToken(), [TokenType.MULTIPLY, TokenType.DIVIDE, TokenType.MODULO])) {
-        var tempToken = this.accept([TokenType.MULTIPLY, TokenType.DIVIDE, TokenType.MODULO]);
-        expressionNode.addOperator(tempToken.type);
-
-        expressionNode.addOperand(this._parsePrimaryExpression());
+        var operatorType = this.getCurrToken().type;
+        this.accept([TokenType.MULTIPLY, TokenType.DIVIDE, TokenType.MODULO]);
+        operations.push(operatorType);
+        operants.push(this._parsePrimaryExpression());
     }
 
+    console.log("_parseMultiplicativeExpression Close");
 
-    console.log("_parseMultiplicativeExpression Close", expressionNode);
-
-    return expressionNode;
+    return new ExpressionNode(operations,operants);
 };
 
-Parser.prototype._parsePrimaryExpression = function (token) {
+Parser.prototype._parsePrimaryExpression = function (name,type) {
 
     console.log("_parsePrimaryExpression Open");
 
-    var expressionNode = new ExpressionNode();
-    expressionNode.setPosition(this.getCurrToken().posLine,this.getCurrToken().numLine);
+    var expressionNode;
 
     if (Parser._tokenIsType(this.getCurrToken(), [TokenType.PARENTHOPEN])) {
         this.accept([TokenType.PARENTHOPEN]);
         expressionNode = this._parseExpression();
         this.accept([TokenType.PARENTHCLOSE]);
 
-        console.log("_parsePrimaryExpression Close", expressionNode);
+        console.log("_parsePrimaryExpression Close");
         return expressionNode;
     }
 
-    if (token && Parser._tokenIsType(token, [TokenType.IDENTIFIER])) {
-        expressionNode = this._parseVariable(token);
-        console.log("_parsePrimaryExpression Close", expressionNode);
-        return expressionNode;
+    if (name && type === TokenType.IDENTIFIER) {
+        return this._parseVariable(name,type);
     }
 
-    expressionNode = this._parseLiteral();
-    console.log("_parsePrimaryExpression Close", expressionNode);
-
-    return expressionNode;
+    return this._parseLiteral();
 };
 
 Parser.prototype._parseLiteral = function () {
-    var expressionNode = new ExpressionNode();
     var negative = false;
 
     console.log("_parseLiteral Open");
 
     if (Parser._tokenIsType(this.getCurrToken(), [TokenType.MINUS])) {
         this.accept([TokenType.MINUS]);
-
         negative = true;
     }
 
-    var tempToken = this.accept([TokenType.NUMBERLITERAL]);
-    expressionNode.setPosition(tempToken.posLine,tempToken.numLine);
+    var operant = this.getCurrToken().value;
+    this.accept([TokenType.NUMBERLITERAL]);
 
     if (negative)
-        expressionNode.addOperand(-1 * tempToken.value);
-    else
-        expressionNode.addOperand(tempToken.value);
+        operant = (-1)*operant;
 
     console.log("_parseLiteral Close");
 
-    return expressionNode;
+    return new ExpressionNode(undefined,[operant]);
 };
 
 Parser.prototype._parseVarDeclaration = function () {
-    var declarationNode = new VarDeclarationNode();
-
     console.log("_parseVarDeclaration");
+    if (!Parser._tokenIsType(this.getCurrToken(), [TokenType.VAR]))
+        return undefined;
 
-    var tempToken = this.accept([TokenType.VAR]);
-    declarationNode.setPosition(tempToken.posLine,tempToken.numLine);
+    this.accept([TokenType.VAR]);
 
-    var nameToken = this.accept([TokenType.IDENTIFIER]);
-    declarationNode.setName(nameToken.value);
+    var name = this.getCurrToken().value;
+    this.accept([TokenType.IDENTIFIER]);
+    var value;
 
     if (Parser._tokenIsType(this.getCurrToken(), [TokenType.ASSIGNEMENT])) {
         this.accept([TokenType.ASSIGNEMENT]);
-
-        declarationNode.setValue(this._parseAssignable());
+        value = this._parseAssignable();
     }
 
     this.accept([TokenType.SEMICOLN]);
 
     console.log("_parseVarDeclaration Close");
 
-    return declarationNode;
+    return new VarDeclarationNode(name,value);
 };
 
 Parser.prototype._parseTestDeclaration = function () {
-    var declarationNode = new TestDeclarationNode();
-
     console.log("_parseTestDeclaration");
+    if (!Parser._tokenIsType(this.getCurrToken(), [TokenType.TEST]))
+        return undefined;
 
-    var tempToken = this.accept([TokenType.TEST]);
-    var nameToken = this.accept([TokenType.IDENTIFIER]);
-    declarationNode.setName(nameToken.value);
-    declarationNode.setPosition(tempToken.posLine,tempToken.numLine);
+    this.accept([TokenType.TEST]);
+
+    var name = this.getCurrToken().value;
+    this.accept([TokenType.IDENTIFIER]);
+    var value;
 
     if (Parser._tokenIsType(this.getCurrToken(), [TokenType.ASSIGNEMENT])) {
         this.accept([TokenType.ASSIGNEMENT]);
-
-        declarationNode.setValue(this._parseAssignable());
-
+        value = this._parseAssignable();
     }
 
     this.accept([TokenType.SEMICOLN]);
 
     console.log("_parseTestDeclaration Close");
 
-    return declarationNode;
+    return new TestDeclarationNode(name,value);
 };
 
 Parser.prototype._parseBodyDeclaration = function () {
-    var declarationNode = new BodyDeclarationNode();
-
     console.log("_parseBodyDeclaration");
+    if (!Parser._tokenIsType(this.getCurrToken(), [TokenType.BODY]))
+        return undefined;
 
-    var tempToken = this.accept([TokenType.BODY]);
-    var nameToken = this.accept([TokenType.IDENTIFIER]);
-    declarationNode.setName(nameToken.value);
-    declarationNode.setPosition(tempToken.posLine,tempToken.numLine);
+    this.accept([TokenType.BODY]);
+
+    var name = this.getCurrToken().value;
+    this.accept([TokenType.IDENTIFIER]);
+    var value;
 
     if (Parser._tokenIsType(this.getCurrToken(), [TokenType.ASSIGNEMENT])) {
         this.accept([TokenType.ASSIGNEMENT]);
-
-        declarationNode.setBody(this._parseAssignable());
+        value = this._parseAssignable();
     }
 
     this.accept([TokenType.SEMICOLN]);
 
     console.log("_parseBodyDeclaration Close");
 
-    return declarationNode;
+    return new BodyDeclarationNode(name,value);
 };
 
 Parser.prototype._parseResponseDeclaration = function () {
-    var declarationNode = new ResponseDeclarationNode();
-
     console.log("_parseResponseDeclaration");
+    if (!Parser._tokenIsType(this.getCurrToken(), [TokenType.RESPONSE]))
+        return undefined;
 
-    var tempToken = this.accept([TokenType.RESPONSE]);
-    var nameToken = this.accept([TokenType.IDENTIFIER]);
-    declarationNode.setName(nameToken.value);
-    declarationNode.setPosition(tempToken.posLine,tempToken.numLine);
+    this.accept([TokenType.RESPONSE]);
+
+    var name = this.getCurrToken().value;
+    this.accept([TokenType.IDENTIFIER]);
+    var value;
 
     if (Parser._tokenIsType(this.getCurrToken(), [TokenType.ASSIGNEMENT])) {
         this.accept([TokenType.ASSIGNEMENT]);
-
-        declarationNode.setBody(this._parseAssignable());
+        value = this._parseAssignable();
     }
 
     this.accept([TokenType.SEMICOLN]);
 
     console.log("_parseResponseDeclaration Close");
 
-    return declarationNode;
+    return new ResponseDeclarationNode(name,value);
 };
 
 Parser.prototype._parseBody = function () {
-    var body = new BodyNode();
+    console.log("_parseBody",this.getCurrToken());
 
-    console.log("_parseBody");
+    this.accept([TokenType.BROCKETOPEN]);
 
-    var tempToken = this.accept([TokenType.BROCKETOPEN]);
-    body.setPosition(tempToken.posLine,tempToken.numLine);
+    var bodyElems = [];
 
     while (Parser._tokenIsType(this.getCurrToken(), [TokenType.QUOTE])) {
-        var bodyTokenName = this.accept([TokenType.QUOTE]);
-        this.accept([TokenType.COLON]);
-        var bodyTokenValue = this.accept([TokenType.QUOTE]);
+        var name = this.getCurrToken().value;
+        this.accept([TokenType.QUOTE]);
 
-        body.addValue(new BodyValue(bodyTokenName.value, bodyTokenValue.value))
+        this.accept([TokenType.COLON]);
+        var value = this.getCurrToken().value;
+        this.accept([TokenType.QUOTE]);
+
+        bodyElems.push(new BodyValue(name, value))
     }
 
     this.accept([TokenType.BROCKETCLOSE]);
 
     console.log("_parseBody Close");
 
-    return body;
+    return new BodyNode(bodyElems);
 };
 
 Parser.prototype._parseTest = function () {
-    var test = new TestNode();
-
     console.log("_parseTest");
 
-    var tempToken = this.accept([TokenType.SQUAREBRACKETOPEN]);
-    test.setPosition(tempToken.posLine,tempToken.numLine);
+    this.accept([TokenType.SQUAREBRACKETOPEN]);
 
-    test.setUrl(this._parseAssignable());
+    var url = this._parseAssignable().value;
 
     this.accept([TokenType.SQUAREBRACKETCLOSE]);
 
     this.accept([TokenType.PARENTHOPEN]);
 
-    test.setBody(this._parseAssignable());
-
+    var body = this._parseAssignable().value;
 
     this.accept([TokenType.PARENTHCLOSE]);
 
     console.log("_parseTest Close");
 
-    return test;
+    return new TestNode(url, body);
 };
 
-Parser.prototype._parseFunCall = function (id) {
-
+Parser.prototype._parseFunCall = function (name) {
     console.log("_parseFunCall Open");
 
-    var funNode = new FunctionCallNode();
-
-    if (!Parser._tokenIsType(this.getCurrToken(), [TokenType.PARENTHOPEN])) {
-        console.log("  not a function call",this.getCurrToken());
-        return undefined;
-    }
-
-    var tempToken = this.getCurrToken();
-    funNode.setPosition(tempToken.posLine,tempToken.numLine);
-
-    funNode.setName(id);
-
+    var argument;
+    var arguments = [];
     this.accept([TokenType.PARENTHOPEN]);
 
-    if (Parser._tokenIsType(this.getCurrToken(), [TokenType.PARENTHCLOSE])) {
-        this.accept([TokenType.PARENTHCLOSE]);
-
-        console.log("  not a function call");
-        return funNode;
-    }
-    console.log(" function call",this.getCurrToken());
-    while (true) {
-        funNode.addArgument(this._parseAssignable());
+    while ((argument = this._parseAssignable()) !== undefined) {
+        arguments.push(argument);
 
         if (Parser._tokenIsType(this.getCurrToken(), [TokenType.PARENTHCLOSE])) {
             this.accept([TokenType.PARENTHCLOSE]);
@@ -707,44 +624,41 @@ Parser.prototype._parseFunCall = function (id) {
         ErrorHandler.error(new MyError(ErrorType.PARSERERROR, type, this.getCurrToken().posLine, this.getCurrToken().numLine));
     }
 
-    console.log("_parseFunCall Close", funNode);
+    console.log("_parseFunCall Close");
+    this.accept([TokenType.SEMICOLN]);
 
-    return funNode;
+    return new FunctionCallNode(name,arguments);
 };
 
 Parser.prototype._parseReturnStatement = function () {
 
     console.log("_parseReturnStatement Open");
+    if (!Parser._tokenIsType(this.getCurrToken(), [TokenType.RETURN]))
+        return undefined;
 
-    var nodeReturn = new ReturnStatementNode();
+   this.accept([TokenType.RETURN]);
 
-    var tempToken = this.accept([TokenType.RETURN]);
-    nodeReturn.setPosition(tempToken.posLine,tempToken.numLine);
-
-    nodeReturn.setValue(this._parseAssignable());
+    var value = this._parseAssignable();
 
     this.accept([TokenType.SEMICOLN]);
 
-    console.log("_parseReturnStatement Close", nodeReturn);
+    console.log("_parseReturnStatement Close");
 
-    return nodeReturn;
+    return new ReturnStatementNode(value);
 };
 
 Parser.prototype._parseLoopBreak = function () {
 
     console.log("_parseLoopBreak Open");
-
-    var nodeBreak = new BreakStatementNode();
-
-    var token = this.accept([TokenType.BREAK]);
-    nodeBreak.setValue();
-    nodeBreak.setPosition(token.posLine,token.numLine);
+    if (!Parser._tokenIsType(this.getCurrToken(), [TokenType.BREAK]))
+        return undefined;
+    this.accept([TokenType.BREAK]);
 
     this.accept([TokenType.SEMICOLN]);
 
-    console.log("_parseLoopBreak Close", nodeBreak);
+    console.log("_parseLoopBreak Close");
 
-    return nodeBreak;
+    return new BreakStatementNode(true);
 };
 
 Parser._isRelationOp = function (token) {
@@ -760,36 +674,34 @@ Parser._tokenIsType = function (token, acceptList) {
 
 Parser.prototype.getCurrToken = function () {
 
-    if (this.previousToken === undefined) {
-        this.previousToken = this.lexer.token();
-        while (this.previousToken.type === TokenType.COMMENT)
-            this.previousToken = this.lexer.token();
+    if (this.oneTokenBuffor === undefined) {
+        this.oneTokenBuffor = this.lexer.token();
+        while (this.oneTokenBuffor.type === TokenType.COMMENT)
+            this.oneTokenBuffor = this.lexer.token();
 
     }
-    return this.previousToken;
+    return this.oneTokenBuffor;
 };
 
 Parser.prototype.accept = function (tokens) {
 
-    var tokenTmp = this.getCurrToken();
-
-    if (tokens.indexOf(tokenTmp.type) > -1) {
-        return tokenTmp;
+    if (tokens.indexOf(this.oneTokenBuffor.type) > -1) {
+        this.oneTokenBuffor = this.lexer.token();
+        return true;
     } else {
-        var type = "Token " + tokenTmp.type + " is not valid type";
-        ErrorHandler.error(new MyError(ErrorType.SYNTAXERROR, type, tokenTmp.posLine, tokenTmp.numLine));
-        return tokenTmp;
+        var type = "Token " + this.oneTokenBuffor.type + " is not valid type";
+        ErrorHandler.error(new MyError(ErrorType.SYNTAXERROR, type, this.oneTokenBuffor.posLine, this.oneTokenBuffor.numLine));
     }
 };
 
 var lexer;
-//
-// function start() {
-//     lexer = new Parser();
-//
-//     lexer.lexer.fileReader.load();
-// }
-//
-// function nextToken() {
-//     console.log(lexer.parse())
-// }
+
+function start() {
+    lexer = new Parser();
+
+    lexer.lexer.fileReader.load();
+}
+
+function nextToken() {
+    console.log(lexer.parse())
+}

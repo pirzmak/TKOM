@@ -440,16 +440,16 @@ SemChecker.prototype._checkCondition = function (scopeProto, condition, position
 };
 
 var lexer;
-
-function start() {
-    lexer = new Parser();
-
-    lexer.lexer.fileReader.load();
-}
-
-function nextToken() {
-    var sem = new SemChecker();
-    console.log(sem, lexer);
-    console.log(sem.check(lexer.parse()));
-    console.log(sem._getExeTree());
-}
+//
+// function start() {
+//     lexer = new Parser();
+//
+//     lexer.lexer.fileReader.load();
+// }
+//
+// function nextToken() {
+//     var sem = new SemChecker();
+//     console.log(sem, lexer);
+//     console.log(sem.check(lexer.parse()));
+//     console.log(sem._getExeTree());
+// }

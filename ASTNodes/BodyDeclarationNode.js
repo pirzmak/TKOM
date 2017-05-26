@@ -1,23 +1,6 @@
-var BodyDeclarationNode = function () {
-    this.name = "";
-    this.body = "";
-    this.posLine = 0;
-    this.numLine = 0;
-};
-
-BodyDeclarationNode.prototype.setPosition = function (p,n) {
-    this.posLine = p;
-    this.numLine = n;
-};
-
-BodyDeclarationNode.prototype.setName = function (name) {
-
+var BodyDeclarationNode = function (name,value) {
     this.name = name;
-};
-
-BodyDeclarationNode.prototype.setBody = function (body) {
-
-    this.body = body;
+    this.value = value;
 };
 
 BodyDeclarationNode.prototype.getType = function () {

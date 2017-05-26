@@ -2,7 +2,7 @@ var ErrorHandler = function () {
 };
 
 ErrorHandler.error = function (myError) {
-    console.error(myError);
+    throw new Error(myError.error + " : " + myError.type + " " + myError.error + " line: " + myError.numLine + " position: " + myError.posLine);
 };
 
 
@@ -11,6 +11,7 @@ var MyError = function (error, type, posLine, numLine) {
     this.type = type;
     this.posLine = posLine;
     this.numLine = numLine;
+
 };
 
 var ErrorType = {
