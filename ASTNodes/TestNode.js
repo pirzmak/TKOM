@@ -3,6 +3,10 @@ var TestNode = function (url,body) {
     this.body = body;
 };
 
+TestNode.prototype.execute = function (scope) {
+
+    return this;
+};
 
 TestNode.prototype.getType = function () {
 

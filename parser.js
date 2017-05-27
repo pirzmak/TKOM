@@ -23,9 +23,12 @@ Parser.prototype.parse = function () {
         functions.push(func);
     }
 
+    var a = new ProgramNode(functions,globalScope);
+    console.log(a);
+    a.execute(globalScope);
+    console.log(a);
     this._scanFunctionsDefinitions(globalScope);
-    console.log(new ProgramNode(functions));
-    return new ProgramNode(functions);
+    return new ProgramNode(functions,globalScope);
 };
 
 Parser.prototype._scanFunctionsDefinitions = function (globalScope) {
@@ -35,7 +38,13 @@ Parser.prototype._scanFunctionsDefinitions = function (globalScope) {
             var type = "Function " + func + "is not defined";
             ErrorHandler.error(new MyError(ErrorType.SEMANTICERROR, type, "", ""));
         }
-    };
+    }
+
+    if(globalScope.functions["main"] === undefined){
+        var type = "Function main is not defined";
+        ErrorHandler.error(new MyError(ErrorType.SEMANTICERROR, type, "", ""));
+    }
+
 };
 
 Parser.prototype._parseVariable = function (name, type, scope) {
@@ -153,6 +162,7 @@ Parser.prototype._parseBlock = function (scopeParent) {
     while ((functionNode = this._parseIfStatement(scope)) !== undefined ||
     (functionNode = this._parseForStatement(scope)) !== undefined ||
     (functionNode = this._parseAssignmentOrFunCall(scope)) !== undefined ||
+    (functionNode = this._parseUrlDeclaration(scope)) !== undefined ||
     (functionNode = this._parseVarDeclaration(scope)) !== undefined ||
     (functionNode = this._parseTestDeclaration(scope)) !== undefined ||
     (functionNode = this._parseBodyDeclaration(scope)) !== undefined ||
@@ -373,6 +383,7 @@ Parser.prototype._parseAssignmentOrFunCall = function (scope) {
         this.accept([TokenType.SEMICOLN]);
         return funCall;
     } else {
+        scope._setVariableDefined(name);
         var variable = this._parseVariable(name, type, scope);
         this.accept([TokenType.ASSIGNEMENT]);
         var value = this._parseAssignable(scope);
@@ -495,7 +506,7 @@ Parser.prototype._parseLiteral = function () {
         negative = true;
     }
 
-    var operant = this.getCurrToken().value;
+    var operant = parseInt(this.getCurrToken().value);
     this.accept([TokenType.NUMBERLITERAL]);
 
     if (negative)
@@ -530,6 +541,32 @@ Parser.prototype._parseVarDeclaration = function (scope) {
     console.log("_parseVarDeclaration Close");
 
     return new VarDeclarationNode(name, value);
+};
+
+Parser.prototype._parseUrlDeclaration = function (scope) {
+    console.log("_parseVarDeclaration");
+    if (!Parser._tokenIsType(this.getCurrToken(), [TokenType.URL]))
+        return undefined;
+
+    this.accept([TokenType.URL]);
+
+    var name = this.getCurrToken().value;
+    this.accept([TokenType.IDENTIFIER]);
+    var value;
+
+    scope._addVariable(name,TokenType.URL);
+
+    if (Parser._tokenIsType(this.getCurrToken(), [TokenType.ASSIGNEMENT])) {
+        this.accept([TokenType.ASSIGNEMENT]);
+        value = this._parseAssignable(scope);
+        scope._setVariableDefined(name);
+    }
+
+    this.accept([TokenType.SEMICOLN]);
+
+    console.log("_parseVarDeclaration Close");
+
+    return new UrlDeclarationNode(name, value);
 };
 
 Parser.prototype._parseTestDeclaration = function (scope) {
