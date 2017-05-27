@@ -1,12 +1,13 @@
 var ScopeProto = function () {
     this.parentScope = undefined;
     this.variables = {};
+    this.functions = {};
 };
 
-var VariablesIsType = function (defined,type,literal) {
+var VariablesIsType = function (defined,type,value) {
     this.defined = defined;
     this.type = type;
-    this.literal = literal;
+    this.value = value;
 };
 
 ScopeProto.prototype._addVariable = function (name,type)
@@ -33,13 +34,13 @@ ScopeProto.prototype._setVariable = function (name,literal) {
 
     if (this.variables[name] !== undefined)
     {
-        this.variables[name].literal = literal;
+        this.variables[name].value = literal;
         return;
     }
 
     if (this.parentScope !== undefined)
     {
-        this.parentScope.setVariable(name, literal);
+        this.parentScope._setVariable(name, literal);
     }
 };
 

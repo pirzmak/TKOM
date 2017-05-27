@@ -1,5 +1,5 @@
-var BlockStatementNode = function (functions) {
-    this.scopeProto = new ScopeProto();
+var BlockStatementNode = function (functions,scope) {
+    this.scopeProto = scope;
     this.functions = functions;
 };
 
