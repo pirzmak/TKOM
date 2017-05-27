@@ -17,13 +17,25 @@ Parser.prototype.parse = function () {
 
     var func;
     var functions = [];
-    var globaScope = new ScopeProto();
-    while ((func = this._parseFunction(globaScope) ) !== undefined) {
+    this.oneTokenBuffor = this.lexer.token();
+    var globalScope = new ScopeProto();
+    while ((func = this._parseFunction(globalScope) ) !== undefined) {
         functions.push(func);
     }
 
+    this._scanFunctionsDefinitions(globalScope);
     console.log(new ProgramNode(functions));
     return new ProgramNode(functions);
+};
+
+Parser.prototype._scanFunctionsDefinitions = function (globalScope) {
+
+    for(var func in globalScope.functions) {
+        if (globalScope.functions[func] === "") {
+            var type = "Function " + func + "is not defined";
+            ErrorHandler.error(new MyError(ErrorType.SEMANTICERROR, type, "", ""));
+        }
+    };
 };
 
 Parser.prototype._parseVariable = function (name, type, scope) {
@@ -358,7 +370,7 @@ Parser.prototype._parseAssignmentOrFunCall = function (scope) {
     if (Parser._tokenIsType(this.getCurrToken(), [TokenType.PARENTHOPEN])) {
         console.log("_parseAssignmentOrFunCall Close");
         var funCall = this._parseFunCall(name, scope);
-        this.accept([TokenType.SEMICOLN])
+        this.accept([TokenType.SEMICOLN]);
         return funCall;
     } else {
         var variable = this._parseVariable(name, type, scope);
@@ -658,7 +670,7 @@ Parser.prototype._parseFunCall = function (name,scope) {
 
     //Funkcja może byc już zdefiniowana w wywołaniu
     if(globalScope.functions[name] === undefined)
-        globalScope.functions[name] = "";
+        globalScope.functions[name] = "" ;
 
 
     if (Parser._tokenIsType(this.getCurrToken(), [TokenType.PARENTHCLOSE])){
@@ -733,13 +745,6 @@ Parser._tokenIsType = function (token, acceptList) {
 };
 
 Parser.prototype.getCurrToken = function () {
-
-    if (this.oneTokenBuffor === undefined) {
-        this.oneTokenBuffor = this.lexer.token();
-        while (this.oneTokenBuffor.type === TokenType.COMMENT)
-            this.oneTokenBuffor = this.lexer.token();
-
-    }
     return this.oneTokenBuffor;
 };
 
@@ -747,6 +752,8 @@ Parser.prototype.accept = function (tokens) {
 
     if (tokens.indexOf(this.oneTokenBuffor.type) > -1) {
         this.oneTokenBuffor = this.lexer.token();
+        while (this.oneTokenBuffor.type === TokenType.COMMENT)
+            this.oneTokenBuffor = this.lexer.token();
         return true;
     } else {
         var type = "Token " + this.oneTokenBuffor.type + " is not valid type";
