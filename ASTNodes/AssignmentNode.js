@@ -5,9 +5,26 @@ var AssignmentNode = function (variable,value) {
 
 AssignmentNode.prototype.execute = function (scope) {
 
-    scope._setVariable(this.variable.name,this.value.execute());
-};
+    var variableType = scope._getVariable(this.variable.name).type;
 
+    switch (variableType) {
+        case TokenType.URL :
+            UrlDeclarationNode._addUrlToScope(scope,this.variable.name,this.value);
+            break;
+        case TokenType.TEST :
+            TestDeclarationNode._addTestToScope(scope,this.variable.name,this.value);
+            break;
+        case TokenType.VAR :
+            VarDeclarationNode._addVarToScope(scope,this.variable.name,this.value);
+            break;
+        case TokenType.BODY :
+            BodyDeclarationNode._addBodyToScope(scope,this.variable.name,this.value);
+            break;
+        default :
+            var type = "Nieobsługiwany typ zmiennej : " + variableType;
+            ErrorHandler.error(new MyError(ErrorType.PARSERERROR, type, "", ""));
+    }
+};
 
 AssignmentNode.prototype.getType = function () {
 

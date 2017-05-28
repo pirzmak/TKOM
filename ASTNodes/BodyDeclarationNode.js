@@ -5,14 +5,18 @@ var BodyDeclarationNode = function (name,value) {
 
 BodyDeclarationNode.prototype.execute = function (scope) {
 
-    if (this.value) {
-        var value = this.value.execute();
-        if (typeof value !== 'object' || value.getType() !== "BodyValue") {
-            var type = "Zly typ " + value + " nie jest typu Body";
+    BodyDeclarationNode._addBodyToScope(scope,this.name,this.value);
+};
+
+BodyDeclarationNode._addBodyToScope = function(scope,name,value){
+    if (value) {
+        if ((typeof value) === 'object' && value.execute().getType() === "BodyValue") {
+            scope._setVariable(name, value);
+        } else {
+            var type = "Zly typ : " + value + " nie jest typu Body";
             ErrorHandler.error(new MyError(ErrorType.PARSERERROR, type, "", ""));
         }
     }
-    scope._setVariable(this.name, this.value.execute());
 };
 
 BodyDeclarationNode.prototype.getType = function () {

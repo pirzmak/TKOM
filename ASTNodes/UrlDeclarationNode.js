@@ -5,14 +5,18 @@ var UrlDeclarationNode = function (name, value) {
 
 UrlDeclarationNode.prototype.execute = function (scope) {
 
-    if (this.value) {
-        var value = this.value.execute();
-        if ((typeof value) !== 'string') {
-            var type = "Zly typ " + value + " nie jest typu Url";
+    UrlDeclarationNode._addUrlToScope(scope,this.name,this.value);
+};
+
+UrlDeclarationNode._addUrlToScope = function(scope,name,value){
+    if (value) {
+        if ((typeof value) === 'string') {
+            scope._setVariable(name, value);
+        } else {
+            var type = "Zly typ : " + value + " nie jest typu Url";
             ErrorHandler.error(new MyError(ErrorType.PARSERERROR, type, "", ""));
         }
     }
-    scope._setVariable(this.name, this.value.execute());
 };
 
 UrlDeclarationNode.prototype.getType = function () {

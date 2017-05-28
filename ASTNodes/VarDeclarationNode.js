@@ -3,16 +3,20 @@ var VarDeclarationNode = function (name,value) {
     this.value = value;
 };
 
-ResponseDeclarationNode.prototype.execute = function (scope) {
+VarDeclarationNode.prototype.execute = function (scope) {
 
-    if (this.value) {
-        var value = this.value.execute();
-        if (typeof value === 'object') {
-            var type = "Zly typ " + value + " nie jest typu Body";
+    VarDeclarationNode._addVarToScope(scope,this.name,this.value);
+};
+
+VarDeclarationNode._addVarToScope = function(scope,name,value){
+    if (value) {
+        if ((typeof this.value) !== 'object') {
+            scope._setVariable(name, value);
+        } else {
+            var type = "Zly typ : " + value + " nie jest typu Var";
             ErrorHandler.error(new MyError(ErrorType.PARSERERROR, type, "", ""));
         }
     }
-    scope._setVariable(this.name, this.value.execute());
 };
 
 VarDeclarationNode.prototype.getType = function () {
