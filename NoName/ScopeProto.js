@@ -22,12 +22,16 @@ ScopeProto.prototype._addVariable = function (name,type)
 
 ScopeProto.prototype._getVariable  = function (name)
 {
-    if (this.variables[name] !== undefined)
-    {
-        return this.variables[name];
+    var tmp = this;
+    while(true){
+        if(tmp.parentScope === undefined && tmp.variables[name] === undefined)
+            return undefined;
+        if(tmp.variables[name] !== undefined){
+            return tmp.variables[name];
+        }
+        tmp = tmp.parentScope;
     }
 
-    return undefined;
 };
 
 ScopeProto.prototype._setVariable = function (name,literal) {
@@ -46,12 +50,16 @@ ScopeProto.prototype._setVariable = function (name,literal) {
 
 ScopeProto.prototype._setVariableDefined  = function (name)
 {
-    if (this.variables[name] === undefined)
-    {
-        return;
+    var tmp = this;
+    while(true){
+        if(tmp.parentScope === undefined && tmp.variables[name] === undefined)
+            return;
+        if(tmp.variables[name] !== undefined){
+            tmp.variables[name].defined=true;
+            return;
+        }
+        tmp = tmp.parentScope;
     }
-
-    this.variables[name].defined=true;
 };
 
 ScopeProto.prototype._hasVariable  = function (name)

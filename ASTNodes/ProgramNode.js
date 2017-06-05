@@ -5,9 +5,7 @@ var ProgramNode = function (functions,scope) {
 
 ProgramNode.prototype.execute = function (scope) {
 
-    this.functions.forEach(function (func) {
-        func.execute(scope);
-    });
+    scope.functions["main"].execute(scope);
 };
 
 

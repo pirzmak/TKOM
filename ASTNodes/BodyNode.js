@@ -7,6 +7,11 @@ var BodyValue = function (name,value) {
     this.value = value;
 };
 
+BodyValue.prototype.getType = function () {
+
+    return "BodyValue";
+};
+
 BodyNode.prototype.execute = function (scope) {
 
     return this.value;

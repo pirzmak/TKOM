@@ -9,9 +9,11 @@ VarDeclarationNode.prototype.execute = function (scope) {
 };
 
 VarDeclarationNode._addVarToScope = function(scope,name,value){
-    if (value) {
-        if ((typeof this.value) !== 'object') {
+    if (value !== undefined) {
+        if ((typeof value) !== 'object') {
             scope._setVariable(name, value);
+        } else if (value.getType() === "ExpressionNode") {
+            scope._setVariable(name, value.execute(scope))
         } else {
             var type = "Zly typ : " + value + " nie jest typu Var";
             ErrorHandler.error(new MyError(ErrorType.PARSERERROR, type, "", ""));

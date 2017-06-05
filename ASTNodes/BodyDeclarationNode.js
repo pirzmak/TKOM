@@ -1,16 +1,16 @@
-var BodyDeclarationNode = function (name,value) {
+var BodyDeclarationNode = function (name, value) {
     this.name = name;
     this.value = value;
 };
 
 BodyDeclarationNode.prototype.execute = function (scope) {
 
-    BodyDeclarationNode._addBodyToScope(scope,this.name,this.value);
+    BodyDeclarationNode._addBodyToScope(scope, this.name, this.value);
 };
 
-BodyDeclarationNode._addBodyToScope = function(scope,name,value){
+BodyDeclarationNode._addBodyToScope = function (scope, name, value) {
     if (value) {
-        if ((typeof value) === 'object' && value.execute().getType() === "BodyValue") {
+        if ((typeof value) === 'object' && value.execute()[0].getType() === "BodyValue") {
             scope._setVariable(name, value);
         } else {
             var type = "Zly typ : " + value + " nie jest typu Body";

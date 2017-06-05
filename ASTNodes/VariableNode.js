@@ -5,9 +5,16 @@ var VariableNode = function () {
     this.numLine = 0;
 };
 
-VariableNode.prototype.setPosition = function (p,n) {
-    this.posLine = p;
-    this.numLine = n;
+VariableNode.prototype.execute = function (scope) {
+    var toReturn = scope._getVariable(this.name);
+    if(toReturn === undefined){
+        var type = "Zmienna nie zdefinowana " + this.name;
+        ErrorHandler.error(new MyError(ErrorType.SEMANTICERROR, type,0, 0));
+    }
+
+    return toReturn.value;
+
+
 };
 
 VariableNode.prototype.setName = function (name) {

@@ -19,15 +19,19 @@ Parser.prototype.parse = function () {
     var functions = [];
     this.oneTokenBuffor = this.lexer.token();
     var globalScope = new ScopeProto();
+
+    globalScope.functions['print']= new PrintNode;
+    globalScope.functions['send']= new SendNode;
     while ((func = this._parseFunction(globalScope) ) !== undefined) {
         functions.push(func);
     }
 
     var a = new ProgramNode(functions,globalScope);
     console.log(a);
+
+    this._scanFunctionsDefinitions(globalScope);
     a.execute(globalScope);
     console.log(a);
-    this._scanFunctionsDefinitions(globalScope);
     return new ProgramNode(functions,globalScope);
 };
 
@@ -354,7 +358,7 @@ Parser.prototype._parseForStatement = function (scope) {
         name = this.getCurrToken().value;
         type = this.getCurrToken().type;
         this.accept([TokenType.IDENTIFIER]);
-        end = this._parseVariable(name, type);
+        end = this._parseVariable(name, type, scope);
     }
     if (Parser._tokenIsType(this.getCurrToken(), [TokenType.NUMBERLITERAL]))
         end = this._parseExpression(this.getCurrToken().value, this.getCurrToken().type);
@@ -445,7 +449,13 @@ Parser.prototype._parseExpression = function (name, type, scope) {
         var operatorType = this.getCurrToken().type;
         this.accept([TokenType.PLUS, TokenType.MINUS]);
         operations.push(operatorType);
-        operants.push(this._parseMultiplicativeExpression(undefined,undefined,scope));
+        if(Parser._tokenIsType(this.getCurrToken(), [TokenType.IDENTIFIER])) {
+            var nname = this.getCurrToken().value;
+            var ttype = this.getCurrToken().type;
+            this.accept([TokenType.IDENTIFIER]);
+            operants.push(this._parseMultiplicativeExpression(nname, ttype, scope));
+        } else
+            operants.push(this._parseMultiplicativeExpression(undefined,undefined,scope));
     }
 
     console.log("_parseExpression Close");
@@ -466,7 +476,13 @@ Parser.prototype._parseMultiplicativeExpression = function (name, type, scope) {
         var operatorType = this.getCurrToken().type;
         this.accept([TokenType.MULTIPLY, TokenType.DIVIDE, TokenType.MODULO]);
         operations.push(operatorType);
-        operants.push(this._parsePrimaryExpression(undefined,undefined,scope));
+        if(Parser._tokenIsType(this.getCurrToken(), [TokenType.IDENTIFIER])) {
+            var nname = this.getCurrToken().value;
+            var ttype = this.getCurrToken().type;
+            this.accept([TokenType.IDENTIFIER]);
+            operants.push(this._parsePrimaryExpression(nname, ttype, scope));
+        } else
+            operants.push(this._parsePrimaryExpression(undefined,undefined,scope));
     }
 
     console.log("_parseMultiplicativeExpression Close");
@@ -514,7 +530,7 @@ Parser.prototype._parseLiteral = function () {
 
     console.log("_parseLiteral Close");
 
-    return new ExpressionNode(undefined, [operant]);
+    return new LiteralNode(operant);
 };
 
 Parser.prototype._parseVarDeclaration = function (scope) {
@@ -713,7 +729,6 @@ Parser.prototype._parseFunCall = function (name,scope) {
     if (Parser._tokenIsType(this.getCurrToken(), [TokenType.PARENTHCLOSE])){
         this.accept([TokenType.PARENTHCLOSE]);
         console.log("_parseFunCall Close 2");
-        this.accept([TokenType.SEMICOLN]);
 
         return new FunctionCallNode(name, arguments);
     }
